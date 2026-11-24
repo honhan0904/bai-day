@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bé Đếm Thỏ - Kéo Thả & Khoanh Tròn</title>
+    <style>
+        /* =========================================================
+           1. THIẾT LẬP KHUNG NGANG 100VW X 100VH KHÔNG CUỘN TRANG
+           ========================================================= */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #1e293b;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Thanh thông báo nhẹ nhàng nhắc xoay ngang khi mở ở màn hình dọc */
+        #rotate-banner {
+            display: none;
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            background-color: rgba(254, 240, 138, 0.96);
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 13px;
+            padding: 6px 16px;
+            border-radius: 999px;
+            border: 2px solid #ffffff;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        @media (orientation: portrait) {
+            #rotate-banner {
+                display: block;
+            }
+        }
+
+        /* Sân khấu chính lấp đầy khung ngang */
+        #game-stage {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: row;
+            background-color: #e6e9ef;
+            overflow: hidden;
+        }
+
+        /* =========================================================
+           2. CỘT BÊN TRÁI (~15%): KHAY 4 CHỮ SỐ 3D & HỘP BÚT KHOANH
+           ========================================================= */
+        #left-sidebar {
+            width: 15%;
+            height: 100%;
+            background-color: #e6e9ef;
+            border-right: 2px solid #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-evenly;
+            padding: 1.5vh 1vw;
+            position: relative;
+            z-index: 30;
+            flex-shrink: 0;
+        }
+
+        #numbers-tray {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-evenly;
+        }
+
+        .tray-slot {
+            width: min(10vw, 19vh);
+            height: min(10vw, 19vh);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .draggable-num {
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+            touch-action: none;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+        }
+
+        .draggable-num:hover:not(.used) {
+            transform: scale(1.08);
+        }
+
+        .draggable-num.used {
+            opacity: 0.25;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        /* Bản sao chữ số bay theo con trỏ chuột / ngón tay */
+        .drag-ghost {
+            position: fixed;
+            z-index: 1500;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(1.16);
+        }
+
+        /* Hộp công cụ Bút Đỏ & Nút Xóa Nét xuất hiện ở Giai đoạn 2 */
+        #pen-panel {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(12px, 2.2vh, 24px);
+        }
+
+        #pen-panel.active {
+            display: flex;
+            animation: popInPanel 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .pen-badge {
+            width: min(10.5vw, 22vh);
+            height: min(10.5vw, 22vh);
+            background: linear-gradient(180deg, #ffffff 0%, #fee2e2 100%);
+            border: 4px solid #ef4444;
+            border-radius: 22px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 18px rgba(239, 68, 68, 0.28);
+            animation: penFloat 1.8s ease-in-out infinite;
+            padding: 6px;
+        }
+
+        .pen-label {
+            font-size: clamp(11px, 1.3vw, 16px);
+            font-weight: 900;
+            color: #dc2626;
+            margin-top: 2px;
+        }
+
+        #clear-stroke-btn {
+            background-color: #ffffff;
+            color: #334155;
+            border: 2px solid #94a3b8;
+            border-radius: 14px;
+            padding: clamp(6px, 1vh, 10px) clamp(10px, 1.2vw, 16px);
+            font-size: clamp(11px, 1.25vw, 15px);
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
+            transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
+        #clear-stroke-btn:hover {
+            border-color: #ef4444;
+            color: #dc2626;
+        }
+
+        #clear-stroke-btn:active {
+            transform: scale(0.94);
+        }
+
+        /* =========================================================
+           3. KHU VỰC BÊN PHẢI (~85%): ĐỒNG CỎ, 4 CHÚ THỎ & CANVAS VẼ
+           ========================================================= */
+        #right-scene {
+            width: 85%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, #1ea7fd 0%, #7dd3fc 52%, #76d72b 52%, #4ea812 100%);
+        }
+
+        #scene-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 5;
+        }
+
+        /* Canvas phủ toàn vùng bãi cỏ để bé dùng bút vẽ tự do */
+        #draw-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 25;
+            pointer-events: none;
+            touch-action: none;
+        }
+
+        #draw-canvas.drawing-enabled {
+            pointer-events: auto;
+            cursor: crosshair;
+        }
+
+        /* Canvas pháo giấy chúc mừng */
+        #confetti-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 45;
+            pointer-events: none;
+        }
+
+        /* Nút tròn duy nhất bật/tắt Âm thanh đặt ở góc trên bên phải vùng cỏ (tránh mũi tên đỏ góc trên bên trái) */
+        #sound-toggle-btn {
+            position: absolute;
+            top: 2.5%;
+            right: 2%;
+            z-index: 60;
+            width: clamp(38px, 3.8vw, 50px);
+            height: clamp(38px, 3.8vw, 50px);
+            border-radius: 50%;
+            border: 3px solid #ffffff;
+            background-color: rgba(255, 255, 255, 0.94);
+            color: #0284c7;
+            font-size: clamp(18px, 1.9vw, 25px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            transition: transform 0.15s ease;
+        }
+
+        #sound-toggle-btn:active {
+            transform: scale(0.9);
+        }
+
+        /* =========================================================
+           4. HIỆU ỨNG CHUYỂN ĐỘNG & LẮP LÁNH
+           ========================================================= */
+        @keyframes popInCenter {
+            0% { opacity: 0; transform: translateX(-50%) scale(0.75); }
+            100% { opacity: 1; transform: translateX(-50%) scale(1); }
+        }
+
+        @keyframes popInPanel {
+            0% { opacity: 0; transform: scale(0.75); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes penFloat {
+            0%, 100% { transform: translateY(0) rotate(-6deg); }
+            50% { transform: translateY(-6px) rotate(4deg); }
+        }
+
+        @keyframes shakeBox {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-9px); }
+            40% { transform: translateX(9px); }
+            60% { transform: translateX(-6px); }
+            80% { transform: translateX(6px); }
+        }
+
+        .shake-anim {
+            animation: shakeBox 0.38s ease-in-out;
+        }
+
+        @keyframes glowOval {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.72; }
+        }
+
+        .oval-glow {
+            animation: glowOval 1.4s ease-in-out infinite;
+        }
+
+        @keyframes starPop {
+            0% { transform: scale(0.2) rotate(0deg); opacity: 1; }
+            70% { transform: scale(1.25) rotate(140deg); opacity: 1; }
+            100% { transform: scale(1.45) rotate(180deg); opacity: 0; }
+        }
+
+        .sparkle-burst {
+            transform-origin: center;
+            transform-box: fill-box;
+            animation: starPop 0.65s ease-out forwards;
+        }
+    </style>
+</head>
+<body><a href="index.html" aria-label="Về menu chính" style="position:fixed;left:14px;top:14px;z-index:1000;display:inline-flex;align-items:center;gap:7px;padding:10px 15px;border:2px solid white;border-radius:999px;background:#ffffffed;color:#26324a;font:800 15px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 4px 14px #0002">← Menu chính</a>
+
+    <!-- Nhắc xoay ngang nhẹ nhàng trên màn hình dọc -->
+    <div id="rotate-banner">📱 Xoay ngang màn hình để bé chơi to và rõ nhất nhé!</div>
+
+    <!-- SÂN KHẤU CHÍNH KHUNG NGANG -->
+    <main id="game-stage">
+
+        <!-- CỘT BÊN TRÁI (~15%): KHAY SỐ 1, 3, 4, 2 & HỘP CÔNG CỤ BÚT ĐỎ -->
+        <aside id="left-sidebar">
+            <!-- Khay 4 chữ số xếp dọc theo thứ tự 1, 3, 4, 2 -->
+            <div id="numbers-tray">
+                <div class="tray-slot"><div class="draggable-num" data-num="1" id="tray-num-1"></div></div>
+                <div class="tray-slot"><div class="draggable-num" data-num="3" id="tray-num-3"></div></div>
+                <div class="tray-slot"><div class="draggable-num" data-num="4" id="tray-num-4"></div></div>
+                <div class="tray-slot"><div class="draggable-num" data-num="2" id="tray-num-2"></div></div>
+            </div>
+
+            <!-- Hộp công cụ Bút đỏ & Xóa nét xuất hiện ở Giai đoạn 2 -->
+            <div id="pen-panel">
+                <div class="pen-badge" title="Dùng bút khoanh tròn chú thỏ màu nâu và số 2">
+                    <svg viewBox="0 0 80 80" width="68%" height="68%">
+                        <g transform="rotate(35 40 40)">
+                            <rect x="31" y="10" width="18" height="44" rx="4" fill="#ef4444" stroke="#991b1b" stroke-width="2.5"/>
+                            <rect x="31" y="10" width="18" height="10" rx="3" fill="#fca5a5"/>
+                            <polygon points="31,54 49,54 40,72" fill="#fde68a" stroke="#b45309" stroke-width="2"/>
+                            <polygon points="37,65 43,65 40,72" fill="#dc2626"/>
+                        </g>
+                    </svg>
+                    <span class="pen-label">Bút khoanh</span>
+                </div>
+                <button id="clear-stroke-btn" type="button">🧹 Xóa nét</button>
+            </div>
+        </aside>
+
+        <!-- KHU VỰC BÊN PHẢI (~85%): ĐỒNG CỎ, 4 CHÚ THỎ, 4 Ô NÉT ĐỨT & CANVAS VẼ -->
+        <section id="right-scene">
+
+            <!-- Nút tròn duy nhất bật/tắt Âm thanh -->
+            <button id="sound-toggle-btn" type="button" aria-label="Bật tắt âm thanh" title="Bật / Tắt âm thanh">🔊</button>
+
+            <!-- Đồ họa SVG nội tuyến sạch sẽ (tuyệt đối không dùng clipPath/mask/filter) -->
+            <svg id="scene-svg" viewBox="0 0 1150 620" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#1ca3fc"/>
+                        <stop offset="65%" stop-color="#60c5ff"/>
+                        <stop offset="100%" stop-color="#bae6fd"/>
+                    </linearGradient>
+                    <linearGradient id="grassBackGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#9be838"/>
+                        <stop offset="100%" stop-color="#65c41c"/>
+                    </linearGradient>
+                    <linearGradient id="grassFrontGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#84e128"/>
+                        <stop offset="55%" stop-color="#5cb814"/>
+                        <stop offset="100%" stop-color="#3f8f09"/>
+                    </linearGradient>
+                    <linearGradient id="trunkGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stop-color="#6b3e1d"/>
+                        <stop offset="50%" stop-color="#8d552c"/>
+                        <stop offset="100%" stop-color="#542e12"/>
+                    </linearGradient>
+                    <linearGradient id="arrowGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#ff5252"/>
+                        <stop offset="50%" stop-color="#e60000"/>
+                        <stop offset="100%" stop-color="#a80000"/>
+                    </linearGradient>
+
+                    <!-- Gradient tạo khối lông mềm mại cho thỏ trắng kem & thỏ nâu caramen -->
+                    <radialGradient id="furWhiteHead" cx="42%" cy="35%" r="65%">
+                        <stop offset="0%" stop-color="#ffffff"/>
+                        <stop offset="68%" stop-color="#f8f6f2"/>
+                        <stop offset="100%" stop-color="#e4dfd7"/>
+                    </radialGradient>
+                    <radialGradient id="furWhiteBody" cx="40%" cy="32%" r="68%">
+                        <stop offset="0%" stop-color="#ffffff"/>
+                        <stop offset="65%" stop-color="#f5f2ec"/>
+                        <stop offset="100%" stop-color="#dfd9cf"/>
+                    </radialGradient>
+                    <radialGradient id="furBrownHead" cx="42%" cy="35%" r="65%">
+                        <stop offset="0%" stop-color="#d89b6e"/>
+                        <stop offset="62%" stop-color="#b57c52"/>
+                        <stop offset="100%" stop-color="#8c5732"/>
+                    </radialGradient>
+                    <radialGradient id="furBrownBody" cx="40%" cy="32%" r="68%">
+                        <stop offset="0%" stop-color="#cf8e63"/>
+                        <stop offset="62%" stop-color="#b57c52"/>
+                        <stop offset="100%" stop-color="#85512d"/>
+                    </radialGradient>
+                    <linearGradient id="earPinkGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#ffccd5"/>
+                        <stop offset="100%" stop-color="#ff8fa3"/>
+                    </linearGradient>
+                    <radialGradient id="cheekBlush" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#ff758f" stop-opacity="0.72"/>
+                        <stop offset="100%" stop-color="#ff758f" stop-opacity="0"/>
+                    </radialGradient>
+                    <linearGradient id="bowBlueGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#60a5fa"/>
+                        <stop offset="50%" stop-color="#2563eb"/>
+                        <stop offset="100%" stop-color="#1d4ed8"/>
+                    </linearGradient>
+                    <linearGradient id="bowYellowGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#fef08a"/>
+                        <stop offset="50%" stop-color="#facc15"/>
+                        <stop offset="100%" stop-color="#ca8a04"/>
+                    </linearGradient>
+                    <radialGradient id="grassShadow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#1e4604" stop-opacity="0.38"/>
+                        <stop offset="100%" stop-color="#1e4604" stop-opacity="0"/>
+                    </radialGradient>
+                </defs>
+
+                <!-- 1. Bầu trời xanh & mây trắng -->
+                <rect x="0" y="0" width="1150" height="350" fill="url(#skyGrad)"/>
+                <g fill="#ffffff" opacity="0.92">
+                    <circle cx="280" cy="140" r="34"/>
+                    <circle cx="320" cy="128" r="44"/>
+                    <circle cx="365" cy="140" r="35"/>
+                    <circle cx="920" cy="110" r="42"/>
+                    <circle cx="975" cy="90" r="56"/>
+                    <circle cx="1035" cy="105" r="46"/>
+                    <circle cx="1080" cy="125" r="36"/>
+                </g>
+
+                <!-- 2. Bụi cây xa ở đường chân trời -->
+                <g fill="#45a824" opacity="0.88">
+                    <circle cx="170" cy="285" r="48"/>
+                    <circle cx="225" cy="275" r="55"/>
+                    <circle cx="285" cy="288" r="45"/>
+                    <circle cx="345" cy="278" r="50"/>
+                    <circle cx="740" cy="290" r="44"/>
+                    <circle cx="795" cy="280" r="52"/>
+                    <circle cx="855" cy="292" r="42"/>
+                    <circle cx="1020" cy="255" r="65"/>
+                    <circle cx="1095" cy="240" r="76"/>
+                    <circle cx="1140" cy="275" r="58"/>
+                </g>
+
+                <!-- 3. Bãi cỏ xanh tươi -->
+                <path d="M0,305 Q310,275 620,295 T1150,285 L1150,620 L0,620 Z" fill="url(#grassBackGrad)"/>
+                <path d="M0,335 Q400,305 790,330 T1150,320 L1150,620 L0,620 Z" fill="url(#grassFrontGrad)"/>
+
+                <!-- 4. Gốc cây cổ thụ & tán lá xanh bên trái -->
+                <path d="M-15,310 C15,210 25,100 0,-10 L165,-10 C140,85 105,175 72,315 Z" fill="url(#trunkGrad)"/>
+                <path d="M82,115 C135,70 205,45 265,20 L245,0 C185,25 125,50 72,85 Z" fill="url(#trunkGrad)"/>
+                <g>
+                    <ellipse cx="45" cy="25" rx="68" ry="44" fill="#3a9d16"/>
+                    <ellipse cx="145" cy="18" rx="75" ry="46" fill="#4bb81d"/>
+                    <ellipse cx="250" cy="14" rx="70" ry="42" fill="#65d124"/>
+                    <ellipse cx="355" cy="10" rx="60" ry="34" fill="#84e128"/>
+                    <ellipse cx="450" cy="6" rx="52" ry="26" fill="#a3e635"/>
+                    <path d="M205,45 Q240,85 270,55 Q240,35 205,45 Z" fill="#84e128"/>
+                    <path d="M280,35 Q310,95 345,70 Q320,35 280,35 Z" fill="#a3e635"/>
+                    <path d="M135,55 Q165,105 198,75 Q170,48 135,55 Z" fill="#65d124"/>
+                </g>
+
+                <!-- 5. Hoa cỏ xinh xắn -->
+                <g transform="translate(60, 575)">
+                    <path d="M-45,45 L-58,-25 L-30,40 L-22,-42 L-8,40 L12,-30 L18,45 L42,-18 L48,45 Z" fill="#2b820e"/>
+                    <circle cx="-20" cy="-25" r="11" fill="#f472b6"/><circle cx="-20" cy="-25" r="4.5" fill="#facc15"/>
+                    <circle cx="26" cy="-12" r="10" fill="#ffffff"/><circle cx="26" cy="-12" r="4" fill="#facc15"/>
+                </g>
+                <g transform="translate(1070, 575)">
+                    <path d="M-55,45 L-42,-22 L-22,42 L-8,-40 L8,42 L28,-28 L35,45 L58,-15 L65,45 Z" fill="#2b820e"/>
+                    <circle cx="-10" cy="-22" r="11" fill="#f472b6"/><circle cx="-10" cy="-22" r="4.5" fill="#facc15"/>
+                    <circle cx="32" cy="-10" r="10" fill="#ffffff"/><circle cx="32" cy="-10" r="4" fill="#facc15"/>
+                </g>
+
+                <!-- 6. Mũi tên đỏ 3D bóng bẩy viền trắng ở góc trên bên trái chỉ từ TRÁI sang PHẢI -->
+                <g transform="translate(18, 14)">
+                    <path d="M16,24 L156,24 L156,10 C156,4 163,0 169,4 L236,40 C241,43 241,49 236,52 L169,86 C163,90 156,86 156,80 L156,66 L16,66 C9,66 4,61 4,54 L4,36 C4,29 9,24 16,24 Z"
+                          fill="url(#arrowGrad)" stroke="#ffffff" stroke-width="7" stroke-linejoin="round"/>
+                    <rect x="16" y="30" width="134" height="7" rx="3.5" fill="#ffffff" opacity="0.45"/>
+                </g>
+
+                <!-- 7. Lớp chứa 4 chú thỏ đứng thành hàng ngang -->
+                <g id="bunnies-layer"></g>
+
+                <!-- 8. 4 ô hình chữ nhật bo góc viền nét đứt màu trắng dưới chân thỏ (thứ tự 1 - 2 - 3 - 4 từ trái sang phải) -->
+                <g id="dropzones-layer">
+                    <!-- Vị trí 1 (trái cùng, thỏ trắng 1, tâm x = 185, y = 515) -> Số 1 -->
+                    <g class="drop-slot-group" data-expected="1" data-cx="185" data-cy="515" id="drop-group-1">
+                        <rect x="130" y="460" width="110" height="110" rx="22" ry="22"
+                              fill="rgba(255,255,255,0.28)" stroke="#ffffff" stroke-width="5" stroke-dasharray="14 10"/>
+                        <g id="placed-num-1"></g>
+                    </g>
+
+                    <!-- Vị trí 2 (thỏ màu nâu, tâm x = 445, y = 515) -> Số 2 -->
+                    <g class="drop-slot-group" data-expected="2" data-cx="445" data-cy="515" id="drop-group-2">
+                        <rect x="390" y="460" width="110" height="110" rx="22" ry="22"
+                              fill="rgba(255,255,255,0.28)" stroke="#ffffff" stroke-width="5" stroke-dasharray="14 10"/>
+                        <g id="placed-num-2"></g>
+                    </g>
+
+                    <!-- Vị trí 3 (thỏ trắng 3, tâm x = 705, y = 515) -> Số 3 -->
+                    <g class="drop-slot-group" data-expected="3" data-cx="705" data-cy="515" id="drop-group-3">
+                        <rect x="650" y="460" width="110" height="110" rx="22" ry="22"
+                              fill="rgba(255,255,255,0.28)" stroke="#ffffff" stroke-width="5" stroke-dasharray="14 10"/>
+                        <g id="placed-num-3"></g>
+                    </g>
+
+                    <!-- Vị trí 4 (phải cùng, thỏ trắng 4, tâm x = 965, y = 515) -> Số 4 -->
+                    <g class="drop-slot-group" data-expected="4" data-cx="965" data-cy="515" id="drop-group-4">
+                        <rect x="910" y="460" width="110" height="110" rx="22" ry="22"
+                              fill="rgba(255,255,255,0.28)" stroke="#ffffff" stroke-width="5" stroke-dasharray="14 10"/>
+                        <g id="placed-num-4"></g>
+                    </g>
+                </g>
+
+                <!-- 9. Lớp hiệu ứng sao lấp lánh khi thả số đúng -->
+                <g id="sparkles-layer"></g>
+
+                <!-- 10. Lớp vòng bầu dục đỏ viền trắng phát sáng khi khoanh đúng -->
+                <g id="circle-result-layer"></g>
+            </svg>
+
+            <!-- Canvas vẽ tự do nét bút đỏ (Giai đoạn 2) -->
+            <canvas id="draw-canvas"></canvas>
+
+            <!-- Canvas pháo giấy chiến thắng -->
+            <canvas id="confetti-canvas"></canvas>
+        </section>
+    </main>
+
+    <script>
+        (function () {
+            'use strict';
+
+            /* =========================================================
+               1. HỆ THỐNG ÂM THANH WEB AUDIO API (AN TOÀN TUYỆT ĐỐI)
+               ========================================================= */
+            var soundEnabled = true;
+            var audioCtx = null;
+
+            function ensureAudioContext() {
+                try {
+                    if (!audioCtx) {
+                        var Ctx = window.AudioContext || window.webkitAudioContext;
+                        if (Ctx) {
+                            audioCtx = new Ctx();
+                        }
+                    }
+                    if (audioCtx && audioCtx.state === 'suspended') {
+                        audioCtx.resume();
+                    }
+                } catch (e) {}
+            }
+
+            function playTone(freq, type, duration, delay, volume) {
+                if (!soundEnabled) return;
+                try {
+                    ensureAudioContext();
+                    if (!audioCtx) return;
+
+                    var now = audioCtx.currentTime + (delay || 0);
+                    var osc = audioCtx.createOscillator();
+                    var gain = audioCtx.createGain();
+
+                    osc.type = type || 'sine';
+                    osc.frequency.setValueAtTime(freq, now);
+
+                    gain.gain.setValueAtTime(volume || 0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + duration);
+                } catch (e) {}
+            }
+
+            function playPickupSound() {
+                playTone(540, 'sine', 0.1, 0, 0.16);
+            }
+
+            function playTingSound() {
+                playTone(784, 'sine', 0.14, 0, 0.24);
+                playTone(1046.5, 'sine', 0.34, 0.08, 0.26);
+            }
+
+            function playBeepErrorSound() {
+                playTone(230, 'triangle', 0.14, 0, 0.2);
+                playTone(180, 'triangle', 0.18, 0.09, 0.2);
+            }
+
+            function playVictoryMelody() {
+                var notes = [
+                    { f: 523.25, t: 0.00, d: 0.14 },
+                    { f: 659.25, t: 0.12, d: 0.14 },
+                    { f: 783.99, t: 0.24, d: 0.14 },
+                    { f: 1046.5, t: 0.38, d: 0.42 },
+                    { f: 783.99, t: 0.62, d: 0.14 },
+                    { f: 1046.5, t: 0.78, d: 0.55 }
+                ];
+                for (var i = 0; i < notes.length; i++) {
+                    playTone(notes[i].f, 'triangle', notes[i].d, notes[i].t, 0.25);
+                }
+            }
+
+            var soundBtn = document.getElementById('sound-toggle-btn');
+            if (soundBtn) {
+                soundBtn.addEventListener('click', function () {
+                    soundEnabled = !soundEnabled;
+                    soundBtn.textContent = soundEnabled ? '🔊' : '🔇';
+                    if (soundEnabled) {
+                        playPickupSound();
+                    }
+                });
+            }
+
+            /* =========================================================
+               2. TẠO CHỮ SỐ 3D BÓNG BẨY VIỀN TRẮNG DÀY (KHÔNG CLIPPATH)
+               ========================================================= */
+            var NUMBER_STYLES = {
+                1: { top: '#ff6b6b', mid: '#ef2323', bot: '#9b0000', stroke: '#b80000' }, // Đỏ tươi
+                2: { top: '#60a5fa', mid: '#2563eb', bot: '#1e3a8a', stroke: '#1d4ed8' }, // Xanh dương
+                3: { top: '#fde047', mid: '#ffbe0b', bot: '#b45309', stroke: '#c26d00' }, // Vàng cam
+                4: { top: '#4ade80', mid: '#16a34a', bot: '#14532d', stroke: '#15803d' }  // Xanh lá
+            };
+
+            function getNumberInnerSVG(num, prefix) {
+                var cfg = NUMBER_STYLES[num];
+                var gradId = 'numGrad_' + prefix + '_' + num;
+
+                // Sử dụng font hình học đậm bo tròn tạo chữ số 3D viền trắng dày, đổ bóng mềm & điểm sáng bóng bẩy
+                return '<defs>' +
+                    '<linearGradient id="' + gradId + '" x1="0" y1="0" x2="0" y2="1">' +
+                        '<stop offset="0%" stop-color="' + cfg.top + '"/>' +
+                        '<stop offset="52%" stop-color="' + cfg.mid + '"/>' +
+                        '<stop offset="100%" stop-color="' + cfg.bot + '"/>' +
+                    '</linearGradient>' +
+                '</defs>' +
+                // Lớp bóng đổ mềm phía dưới
+                '<text x="55" y="90" text-anchor="middle" ' +
+                      'font-family="Arial Rounded MT Bold, Trebuchet MS, Arial, sans-serif" ' +
+                      'font-weight="900" font-size="86" ' +
+                      'fill="rgba(15, 23, 42, 0.28)" stroke="rgba(15, 23, 42, 0.28)" ' +
+                      'stroke-width="18" stroke-linejoin="round" stroke-linecap="round">' + num + '</text>' +
+                // Lớp viền trắng dày bên ngoài
+                '<text x="55" y="85" text-anchor="middle" ' +
+                      'font-family="Arial Rounded MT Bold, Trebuchet MS, Arial, sans-serif" ' +
+                      'font-weight="900" font-size="86" ' +
+                      'fill="#ffffff" stroke="#ffffff" ' +
+                      'stroke-width="18" stroke-linejoin="round" stroke-linecap="round">' + num + '</text>' +
+                // Lớp viền màu đậm tạo khối nổi 3D
+                '<text x="55" y="85" text-anchor="middle" ' +
+                      'font-family="Arial Rounded MT Bold, Trebuchet MS, Arial, sans-serif" ' +
+                      'font-weight="900" font-size="86" ' +
+                      'fill="' + cfg.bot + '" stroke="' + cfg.stroke + '" ' +
+                      'stroke-width="7" stroke-linejoin="round" stroke-linecap="round">' + num + '</text>' +
+                // Lớp mặt chữ số chuyển sắc 3D bóng bẩy
+                '<text x="55" y="83" text-anchor="middle" ' +
+                      'font-family="Arial Rounded MT Bold, Trebuchet MS, Arial, sans-serif" ' +
+                      'font-weight="900" font-size="86" ' +
+                      'fill="url(#' + gradId + ')">' + num + '</text>' +
+                // Vệt sáng bóng phía trên
+                '<ellipse cx="52" cy="24" rx="13" ry="3.5" fill="#ffffff" opacity="0.55"/>';
+            }
+
+            function renderTrayNumbers() {
+                var nums = [1, 2, 3, 4];
+                for (var i = 0; i < nums.length; i++) {
+                    var n = nums[i];
+                    var el = document.getElementById('tray-num-' + n);
+                    if (el) {
+                        el.innerHTML = '<svg viewBox="0 0 110 110" width="100%" height="100%" style="overflow:visible;">' +
+                            getNumberInnerSVG(n, 'tray') +
+                        '</svg>';
+                    }
+                }
+            }
+
+            /* =========================================================
+               3. TẠO HÌNH 4 CHÚ THỎ CHUẨN MẪU (3 TRẮNG KEM + 1 NÂU CARAMEN)
+               ========================================================= */
+            function createBunnyGroupMarkup(cx, bottomY, isBrown, scaleFactor) {
+                var headFill = isBrown ? 'url(#furBrownHead)' : 'url(#furWhiteHead)';
+                var bodyFill = isBrown ? 'url(#furBrownBody)' : 'url(#furWhiteBody)';
+                var earOuterFill = isBrown ? '#c98e63' : '#faf8f5';
+                var bellyFill = isBrown ? '#e8bc96' : '#ffffff';
+                var strokeCol = isBrown ? '#7c431a' : '#cfc8bc';
+                var pawPadCol = isBrown ? '#f4978e' : '#ff9ebb';
+                var bowFill = isBrown ? 'url(#bowYellowGrad)' : 'url(#bowBlueGrad)';
+                var bowStroke = isBrown ? '#a16207' : '#1e40af';
+                var bowKnot = isBrown ? '#eab308' : '#3b82f6';
+
+                var s = scaleFactor || 1.0;
+                var tx = cx - 102 * s;
+                var ty = bottomY - 276 * s;
+
+                return '<g transform="translate(' + tx.toFixed(1) + ',' + ty.toFixed(1) + ') scale(' + s.toFixed(3) + ')">' +
+                    // Bóng đổ mềm dưới chân trên bãi cỏ
+                    '<ellipse cx="102" cy="274" rx="68" ry="13" fill="url(#grassShadow)"/>' +
+
+                    // 1. Đuôi bông tròn sau lưng
+                    '<path d="M52,196 C32,194 24,212 32,226 C39,237 56,236 62,224 Z" ' +
+                          'fill="' + bodyFill + '" stroke="' + strokeCol + '" stroke-width="2.2" stroke-linejoin="round"/>' +
+
+                    // 2. Tai trái rủ cong mềm mại sang trái
+                    '<path d="M84,96 C66,54 34,26 16,42 C2,54 14,84 44,96 C62,103 76,105 84,104 Z" ' +
+                          'fill="' + earOuterFill + '" stroke="' + strokeCol + '" stroke-width="2.3" stroke-linejoin="round"/>' +
+                    '<path d="M76,95 C60,62 36,40 23,50 C14,58 24,78 46,88 C60,94 70,96 76,95 Z" ' +
+                          'fill="url(#earPinkGrad)"/>' +
+
+                    // 3. Tai phải vươn cao lên trên
+                    '<path d="M106,92 C104,48 122,8 144,12 C164,16 160,58 136,92 C128,103 116,104 106,92 Z" ' +
+                          'fill="' + earOuterFill + '" stroke="' + strokeCol + '" stroke-width="2.3" stroke-linejoin="round"/>' +
+                    '<path d="M113,88 C113,54 126,22 141,25 C154,28 149,58 131,86 C125,94 117,95 113,88 Z" ' +
+                          'fill="url(#earPinkGrad)"/>' +
+
+                    // 4. Tay phải giơ lên vẫy chào với đệm chân hồng
+                    '<path d="M132,176 C152,168 172,150 180,132 C187,118 172,108 161,120 C150,132 138,148 126,158 Z" ' +
+                          'fill="' + bodyFill + '" stroke="' + strokeCol + '" stroke-width="2.2" stroke-linejoin="round"/>' +
+                    '<ellipse cx="169" cy="131" rx="6.5" ry="5.5" transform="rotate(-28 169 131)" fill="' + pawPadCol + '" opacity="0.9"/>' +
+                    '<circle cx="165" cy="121" r="2.3" fill="' + pawPadCol + '"/>' +
+                    '<circle cx="171" cy="119" r="2.4" fill="' + pawPadCol + '"/>' +
+                    '<circle cx="177" cy="122" r="2.2" fill="' + pawPadCol + '"/>' +
+
+                    // 5. Thân hình mũm mĩm nghiêng nhẹ sang phải
+                    '<path d="M68,162 C48,182 46,224 64,248 C78,264 126,264 140,246 C154,226 150,184 130,162 Z" ' +
+                          'fill="' + bodyFill + '" stroke="' + strokeCol + '" stroke-width="2.3" stroke-linejoin="round"/>' +
+                    '<ellipse cx="112" cy="212" rx="26" ry="34" fill="' + bellyFill + '" opacity="0.58"/>' +
+
+                    // 6. Hai bàn chân sau đứng vững trên cỏ
+                    '<path d="M60,248 C48,252 46,268 62,271 C78,274 96,271 98,261 C99,252 84,246 60,248 Z" ' +
+                          'fill="' + bodyFill + '" stroke="' + strokeCol + '" stroke-width="2.2" stroke-linejoin="round"/>' +
+                    '<path d="M77,263 Q79,268 78,271" stroke="' + strokeCol + '" stroke-width="1.8" stroke-linecap="round"/>' +
+                    '<path d="M87,261 Q89,266 88,270" stroke="' + strokeCol + '" stroke-width="1.8" stroke-linecap="round"/>' +
+
+                    '<path d="M98,251 C88,255 88,271 106,274 C126,276 144,271 144,261 C144,251 124,247 98,251 Z" ' +
+                          'fill="' + bodyFill + '" stroke="' + strokeCol + '" stroke-width="2.2" stroke-linejoin="round"/>' +
+                    '<path d="M122,265 Q124,270 123,273" stroke="' + strokeCol + '" stroke-width="1.8" stroke-linecap="round"/>' +
+                    '<path d="M133,262 Q135,267 134,271" stroke="' + strokeCol + '" stroke-width="1.8" stroke-linecap="round"/>' +
+
+                    // 7. Tay trái khép nhẹ trước ngực
+                    '<path d="M74,174 C66,192 74,214 92,216 C103,217 108,207 101,198 C93,190 88,180 86,170" ' +
+                          'fill="' + bodyFill + '" stroke="' + strokeCol + '" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+
+                    // 8. Nơ bướm xinh xắn ở cổ
+                    '<g transform="translate(107, 165)">' +
+                        '<path d="M-4,-2 L-24,-13 C-29,-6 -29,6 -24,13 L-4,3 Z" ' +
+                              'fill="' + bowFill + '" stroke="' + bowStroke + '" stroke-width="2" stroke-linejoin="round"/>' +
+                        '<path d="M-8,0 L-20,-4 M-8,1 L-20,5" stroke="' + bowStroke + '" stroke-width="1.4" opacity="0.55" stroke-linecap="round"/>' +
+                        '<path d="M4,-2 L24,-13 C29,-6 29,6 24,13 L4,3 Z" ' +
+                              'fill="' + bowFill + '" stroke="' + bowStroke + '" stroke-width="2" stroke-linejoin="round"/>' +
+                        '<path d="M8,0 L20,-4 M8,1 L20,5" stroke="' + bowStroke + '" stroke-width="1.4" opacity="0.55" stroke-linecap="round"/>' +
+                        '<rect x="-7" y="-7" width="14" height="15" rx="5" fill="' + bowKnot + '" stroke="' + bowStroke + '" stroke-width="2"/>' +
+                    '</g>' +
+
+                    // 9. Đầu thỏ bầu bĩnh & má hồng phấn
+                    '<path d="M104,82 C74,82 56,104 58,128 C60,150 82,162 110,162 C138,162 158,148 156,129 C155,118 148,112 145,104 C140,90 124,82 104,82 Z" ' +
+                          'fill="' + headFill + '" stroke="' + strokeCol + '" stroke-width="2.3" stroke-linejoin="round"/>' +
+                    '<ellipse cx="77" cy="133" rx="14" ry="9" fill="url(#cheekBlush)"/>' +
+                    '<ellipse cx="141" cy="131" rx="14" ry="9" fill="url(#cheekBlush)"/>' +
+
+                    // Lông mày & đôi mắt to tròn long lanh màu nâu
+                    '<path d="M81,96 Q90,90 99,95" stroke="#5c2d0c" stroke-width="2.4" fill="none" stroke-linecap="round"/>' +
+                    '<path d="M117,94 Q126,89 135,95" stroke="#5c2d0c" stroke-width="2.4" fill="none" stroke-linecap="round"/>' +
+
+                    '<ellipse cx="91" cy="113" rx="10" ry="12.5" fill="#ffffff" stroke="' + strokeCol + '" stroke-width="1.2"/>' +
+                    '<ellipse cx="93" cy="114" rx="7.6" ry="9.8" fill="#6b3410"/>' +
+                    '<circle cx="94" cy="114" r="4.8" fill="#1a0b02"/>' +
+                    '<circle cx="90.5" cy="109" r="3.2" fill="#ffffff"/>' +
+                    '<circle cx="96.5" cy="118" r="1.5" fill="#ffffff"/>' +
+
+                    '<ellipse cx="125" cy="112" rx="9.5" ry="12" fill="#ffffff" stroke="' + strokeCol + '" stroke-width="1.2"/>' +
+                    '<ellipse cx="126.5" cy="113" rx="7.2" ry="9.4" fill="#6b3410"/>' +
+                    '<circle cx="127.5" cy="113" r="4.5" fill="#1a0b02"/>' +
+                    '<circle cx="124" cy="108.5" r="3" fill="#ffffff"/>' +
+                    '<circle cx="129.5" cy="117" r="1.4" fill="#ffffff"/>' +
+
+                    // Mũi hồng & miệng cười lộ 2 răng thỏ trắng xinh
+                    '<path d="M107,125 C111,123 117,123 120,125 C122,127 117,132 113.5,132 C110,132 105,127 107,125 Z" ' +
+                          'fill="#ff758f" stroke="#e11d48" stroke-width="1"/>' +
+                    '<ellipse cx="112" cy="126" rx="2.5" ry="1" fill="#ffffff" opacity="0.65"/>' +
+
+                    '<path d="M100,135 Q113.5,139 127,134 C126,151 119,156 113.5,156 C107,156 101,150 100,135 Z" ' +
+                          'fill="#881337" stroke="#5c0b23" stroke-width="1.4" stroke-linejoin="round"/>' +
+                    '<path d="M105,149 Q113.5,144 122,149 Q118,155 113.5,155 C109,155 106,152 105,149 Z" ' +
+                          'fill="#fb7185"/>' +
+                    '<rect x="108.5" y="136.2" width="4.6" height="5.5" rx="1.4" fill="#ffffff"/>' +
+                    '<rect x="113.8" y="136.2" width="4.6" height="5.5" rx="1.4" fill="#ffffff"/>' +
+                '</g>';
+            }
+
+            function renderBunnies() {
+                var layer = document.getElementById('bunnies-layer');
+                if (!layer) return;
+                var bunniesConfig = [
+                    { x: 185, isBrown: false, scale: 1.10 },
+                    { x: 445, isBrown: true,  scale: 1.02 },
+                    { x: 705, isBrown: false, scale: 1.02 },
+                    { x: 965, isBrown: false, scale: 1.02 }
+                ];
+                var html = '';
+                for (var i = 0; i < bunniesConfig.length; i++) {
+                    var cfg = bunniesConfig[i];
+                    html += createBunnyGroupMarkup(cfg.x, 446, cfg.isBrown, cfg.scale);
+                }
+                layer.innerHTML = html;
+            }
+
+            /* =========================================================
+               4. HIỆU ỨNG SAO LẤP LÁNH KHI THẢ ĐÚNG CHỮ SỐ
+               ========================================================= */
+            function triggerSparkles(cx, cy) {
+                var layer = document.getElementById('sparkles-layer');
+                if (!layer) return;
+
+                var offsets = [
+                    { dx: -52, dy: -46, s: 1.0 },
+                    { dx:  54, dy: -42, s: 1.1 },
+                    { dx: -56, dy:  44, s: 0.9 },
+                    { dx:  52, dy:  48, s: 1.0 },
+                    { dx:   0, dy: -62, s: 1.15 }
+                ];
+
+                var group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                for (var i = 0; i < offsets.length; i++) {
+                    var o = offsets[i];
+                    var star = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    var x = cx + o.dx;
+                    var y = cy + o.dy;
+                    var r1 = 12 * o.s;
+                    var r2 = 4.5 * o.s;
+                    var pts = '';
+                    for (var k = 0; k < 8; k++) {
+                        var angle = (k * Math.PI) / 4;
+                        var r = (k % 2 === 0) ? r1 : r2;
+                        pts += (x + Math.cos(angle) * r).toFixed(1) + ',' + (y + Math.sin(angle) * r).toFixed(1) + ' ';
+                    }
+                    star.setAttribute('points', pts.trim());
+                    star.setAttribute('fill', k % 2 === 0 ? '#fde047' : '#ffffff');
+                    star.setAttribute('stroke', '#f59e0b');
+                    star.setAttribute('stroke-width', '1.5');
+                    star.setAttribute('class', 'sparkle-burst');
+                    group.appendChild(star);
+                }
+
+                layer.appendChild(group);
+                setTimeout(function () {
+                    if (group.parentNode) {
+                        group.parentNode.removeChild(group);
+                    }
+                }, 700);
+            }
+
+            /* =========================================================
+               5. GIAI ĐOẠN 1: KÉO THẢ CHỮ SỐ 1 -> 2 -> 3 -> 4 (POINTER EVENTS)
+               ========================================================= */
+            var gamePhase = 'DRAG'; // 'DRAG' | 'DRAW' | 'DONE'
+            var placedCount = 0;
+            var activeDrag = null;
+
+            var sceneSvg = document.getElementById('scene-svg');
+            var dropGroups = document.querySelectorAll('.drop-slot-group');
+
+            function clientToViewBox(clientX, clientY) {
+                var rect = sceneSvg.getBoundingClientRect();
+                var vx = ((clientX - rect.left) / rect.width) * 1150;
+                var vy = ((clientY - rect.top) / rect.height) * 620;
+                return { x: vx, y: vy };
+            }
+
+            function startDrag(num, clientX, clientY, sourceEl) {
+                if (gamePhase !== 'DRAG') return;
+                if (sourceEl.classList.contains('used')) return;
+
+                playPickupSound();
+
+                var rect = sourceEl.getBoundingClientRect();
+                var ghost = document.createElement('div');
+                ghost.className = 'drag-ghost';
+                ghost.style.width = rect.width + 'px';
+                ghost.style.height = rect.height + 'px';
+                ghost.style.left = clientX + 'px';
+                ghost.style.top = clientY + 'px';
+                ghost.innerHTML = '<svg viewBox="0 0 110 110" width="100%" height="100%" style="overflow:visible;">' +
+                    getNumberInnerSVG(num, 'ghost') +
+                '</svg>';
+                document.body.appendChild(ghost);
+
+                activeDrag = {
+                    num: num,
+                    sourceEl: sourceEl,
+                    ghost: ghost
+                };
+            }
+
+            function moveDrag(clientX, clientY) {
+                if (!activeDrag) return;
+                activeDrag.ghost.style.left = clientX + 'px';
+                activeDrag.ghost.style.top = clientY + 'px';
+
+                var pt = clientToViewBox(clientX, clientY);
+                for (var i = 0; i < dropGroups.length; i++) {
+                    var grp = dropGroups[i];
+                    var rectEl = grp.querySelector('rect');
+                    if (!rectEl || grp.dataset.filled === 'true') continue;
+
+                    var cx = parseFloat(grp.dataset.cx);
+                    var cy = parseFloat(grp.dataset.cy);
+                    var isNear = Math.abs(pt.x - cx) <= 82 && Math.abs(pt.y - cy) <= 82;
+                    rectEl.setAttribute('fill', isNear ? 'rgba(255,255,255,0.74)' : 'rgba(255,255,255,0.28)');
+                    rectEl.setAttribute('stroke', isNear ? '#fde047' : '#ffffff');
+                }
+            }
+
+            function endDrag(clientX, clientY) {
+                if (!activeDrag) return;
+                var drag = activeDrag;
+                activeDrag = null;
+
+                if (drag.ghost && drag.ghost.parentNode) {
+                    drag.ghost.parentNode.removeChild(drag.ghost);
+                }
+
+                var pt = clientToViewBox(clientX, clientY);
+                var hitGroup = null;
+
+                for (var i = 0; i < dropGroups.length; i++) {
+                    var grp = dropGroups[i];
+                    var rectEl = grp.querySelector('rect');
+                    if (rectEl && grp.dataset.filled !== 'true') {
+                        rectEl.setAttribute('fill', 'rgba(255,255,255,0.28)');
+                        rectEl.setAttribute('stroke', '#ffffff');
+                    }
+
+                    if (grp.dataset.filled === 'true') continue;
+                    var cx = parseFloat(grp.dataset.cx);
+                    var cy = parseFloat(grp.dataset.cy);
+                    if (Math.abs(pt.x - cx) <= 85 && Math.abs(pt.y - cy) <= 85) {
+                        hitGroup = grp;
+                    }
+                }
+
+                if (hitGroup) {
+                    var expectedNum = parseInt(hitGroup.dataset.expected, 10);
+                    if (expectedNum === drag.num) {
+                        // Thả đúng chữ số
+                        playTingSound();
+                        hitGroup.dataset.filled = 'true';
+                        drag.sourceEl.classList.add('used');
+
+                        var rectEl = hitGroup.querySelector('rect');
+                        if (rectEl) {
+                            rectEl.setAttribute('fill', 'rgba(255,255,255,0.86)');
+                            rectEl.setAttribute('stroke', '#ffffff');
+                            rectEl.removeAttribute('stroke-dasharray');
+                        }
+
+                        var cx = parseFloat(hitGroup.dataset.cx);
+                        var cy = parseFloat(hitGroup.dataset.cy);
+                        var placedContainer = document.getElementById('placed-num-' + expectedNum);
+                        if (placedContainer) {
+                            placedContainer.innerHTML = '<g transform="translate(' + (cx - 55) + ',' + (cy - 55) + ')">' +
+                                getNumberInnerSVG(expectedNum, 'placed') +
+                            '</g>';
+                        }
+
+                        triggerSparkles(cx, cy);
+
+                        placedCount++;
+                        if (placedCount >= 4) {
+                            setTimeout(enterDrawingPhase, 500);
+                        }
+                    } else {
+                        // Thả sai chữ số -> rung nhẹ ô thả và bật về khay cũ kèm tiếng Bíp nhẹ
+                        playBeepErrorSound();
+                        hitGroup.classList.remove('shake-anim');
+                        void hitGroup.offsetWidth;
+                        hitGroup.classList.add('shake-anim');
+                    }
+                }
+            }
+
+            function bindDragEvents() {
+                var numEls = document.querySelectorAll('.draggable-num');
+                for (var i = 0; i < numEls.length; i++) {
+                    (function (el) {
+                        var num = parseInt(el.dataset.num, 10);
+                        el.addEventListener('pointerdown', function (e) {
+                            if (e.pointerType === 'mouse' && e.button !== 0) return;
+                            e.preventDefault();
+                            startDrag(num, e.clientX, e.clientY, el);
+                        });
+                    })(numEls[i]);
+                }
+
+                window.addEventListener('pointermove', function (e) {
+                    if (activeDrag) {
+                        e.preventDefault();
+                        moveDrag(e.clientX, e.clientY);
+                    }
+                });
+
+                window.addEventListener('pointerup', function (e) {
+                    if (activeDrag) {
+                        endDrag(e.clientX, e.clientY);
+                    }
+                });
+
+                window.addEventListener('pointercancel', function () {
+                    if (activeDrag) {
+                        if (activeDrag.ghost && activeDrag.ghost.parentNode) {
+                            activeDrag.ghost.parentNode.removeChild(activeDrag.ghost);
+                        }
+                        activeDrag = null;
+                    }
+                });
+            }
+
+            /* =========================================================
+               6. GIAI ĐOẠN 2: CÂY BÚT ĐỎ KHOANH TRÒN THỎ NÂU & SỐ 4
+               ========================================================= */
+            var numbersTray = document.getElementById('numbers-tray');
+            var penPanel = document.getElementById('pen-panel');
+            var clearStrokeBtn = document.getElementById('clear-stroke-btn');
+            var drawCanvas = document.getElementById('draw-canvas');
+            var drawCtx = drawCanvas ? drawCanvas.getContext('2d') : null;
+
+            var isDrawing = false;
+            var strokePoints = [];
+            var clearTimer = null;
+
+            function resizeDrawCanvas() {
+                if (!drawCanvas) return;
+                var rect = drawCanvas.getBoundingClientRect();
+                drawCanvas.width = Math.max(1, Math.round(rect.width));
+                drawCanvas.height = Math.max(1, Math.round(rect.height));
+            }
+
+            window.addEventListener('resize', resizeDrawCanvas);
+
+            function clearCanvasDrawing() {
+                if (clearTimer) {
+                    clearTimeout(clearTimer);
+                    clearTimer = null;
+                }
+                strokePoints = [];
+                if (drawCtx && drawCanvas) {
+                    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+                }
+                if (drawCanvas) {
+                    drawCanvas.classList.remove('shake-anim');
+                }
+            }
+
+            function enterDrawingPhase() {
+                gamePhase = 'DRAW';
+                if (numbersTray) numbersTray.style.display = 'none';
+                if (penPanel) penPanel.classList.add('active');
+
+                resizeDrawCanvas();
+                if (drawCanvas) {
+                    drawCanvas.classList.add('drawing-enabled');
+                }
+            }
+
+            function getCanvasLocalPoint(clientX, clientY) {
+                var rect = drawCanvas.getBoundingClientRect();
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top,
+                    vx: ((clientX - rect.left) / rect.width) * 1150,
+                    vy: ((clientY - rect.top) / rect.height) * 620
+                };
+            }
+
+            function beginStroke(clientX, clientY) {
+                if (gamePhase !== 'DRAW' || !drawCtx) return;
+                if (clearTimer) {
+                    clearCanvasDrawing();
+                }
+                ensureAudioContext();
+                isDrawing = true;
+                strokePoints = [];
+
+                var pt = getCanvasLocalPoint(clientX, clientY);
+                strokePoints.push(pt);
+
+                drawCtx.lineCap = 'round';
+                drawCtx.lineJoin = 'round';
+                drawCtx.strokeStyle = '#ef4444';
+                drawCtx.lineWidth = Math.max(5, drawCanvas.width * 0.007);
+                drawCtx.beginPath();
+                drawCtx.moveTo(pt.x, pt.y);
+            }
+
+            function extendStroke(clientX, clientY) {
+                if (!isDrawing || gamePhase !== 'DRAW' || !drawCtx) return;
+                var pt = getCanvasLocalPoint(clientX, clientY);
+                strokePoints.push(pt);
+
+                drawCtx.lineTo(pt.x, pt.y);
+                drawCtx.stroke();
+            }
+
+            function finishStroke() {
+                if (!isDrawing || gamePhase !== 'DRAW') return;
+                isDrawing = false;
+
+                if (strokePoints.length < 10) {
+                    return;
+                }
+
+                // Tính bounding box & độ dài nét vẽ trong hệ viewBox 1150 x 620
+                var minX = Infinity, maxX = -Infinity;
+                var minY = Infinity, maxY = -Infinity;
+                var totalLen = 0;
+
+                for (var i = 0; i < strokePoints.length; i++) {
+                    var p = strokePoints[i];
+                    if (p.vx < minX) minX = p.vx;
+                    if (p.vx > maxX) maxX = p.vx;
+                    if (p.vy < minY) minY = p.vy;
+                    if (p.vy > maxY) maxY = p.vy;
+
+                    if (i > 0) {
+                        var prev = strokePoints[i - 1];
+                        totalLen += Math.hypot(p.vx - prev.vx, p.vy - prev.vy);
+                    }
+                }
+
+                var boxW = maxX - minX;
+                var boxH = maxY - minY;
+
+                if (totalLen < 200 || boxW < 65 || boxH < 65) {
+                    return;
+                }
+
+                // Tọa độ cột thứ 2 từ trái sang (vị trí thỏ nâu & ô số 2): tâm x = 445
+                // Chú thỏ màu nâu: y từ ~165 đến 446 (tâm thân ~310)
+                // Ô số 2 phía dưới chân thỏ nâu: y từ 460 đến 570 (tâm ~515)
+                var colBrownCenterX = 445;
+                var brownBodyY = 310;
+                var num2CenterY = 515;
+
+                var coversColBrownX = (minX <= colBrownCenterX - 35) && (maxX >= colBrownCenterX + 35);
+                var overlapsWhiteBunnies = (minX < 235) || (maxX > 655); // Lấn sang thỏ trắng bên trái (x=185) hoặc bên phải (x=705)
+
+                var coversBrownBunny = coversColBrownX && (minY <= brownBodyY - 45) && (maxY >= brownBodyY + 55);
+                var coversNumber2 = coversColBrownX && (minY <= num2CenterY - 25) && (maxY >= num2CenterY + 25);
+
+                if (overlapsWhiteBunnies) {
+                    triggerWrongCircle();
+                } else if (coversBrownBunny && !coversNumber2) {
+                    triggerWrongCircle();
+                } else if (!coversBrownBunny && coversNumber2) {
+                    triggerWrongCircle();
+                } else if (coversBrownBunny && coversNumber2) {
+                    completeGameSuccess();
+                } else {
+                    triggerWrongCircle();
+                }
+            }
+
+            function triggerWrongCircle() {
+                playBeepErrorSound();
+                if (drawCanvas) {
+                    drawCanvas.classList.remove('shake-anim');
+                    void drawCanvas.offsetWidth;
+                    drawCanvas.classList.add('shake-anim');
+                }
+                if (clearTimer) clearTimeout(clearTimer);
+                clearTimer = setTimeout(function () {
+                    clearCanvasDrawing();
+                }, 900);
+            }
+
+            function completeGameSuccess() {
+                gamePhase = 'DONE';
+                clearCanvasDrawing();
+                if (drawCanvas) {
+                    drawCanvas.classList.remove('drawing-enabled');
+                }
+
+                // Chuẩn hóa nét vẽ thành hình bầu dục đỏ tươi viền trắng phát sáng ôm trọn thỏ nâu & số 2
+                var resultLayer = document.getElementById('circle-result-layer');
+                if (resultLayer) {
+                    resultLayer.innerHTML =
+                        '<ellipse class="oval-glow" cx="445" cy="365" rx="112" ry="222" ' +
+                                 'fill="rgba(239, 68, 68, 0.1)" stroke="#ffffff" stroke-width="14"/>' +
+                        '<ellipse class="oval-glow" cx="445" cy="365" rx="112" ry="222" ' +
+                                 'fill="none" stroke="#ef4444" stroke-width="7"/>';
+                }
+
+                playVictoryMelody();
+                startConfetti();
+            }
+
+            function bindDrawEvents() {
+                if (!drawCanvas) return;
+
+                drawCanvas.addEventListener('pointerdown', function (e) {
+                    if (e.pointerType === 'mouse' && e.button !== 0) return;
+                    e.preventDefault();
+                    beginStroke(e.clientX, e.clientY);
+                });
+
+                window.addEventListener('pointermove', function (e) {
+                    if (isDrawing) {
+                        e.preventDefault();
+                        extendStroke(e.clientX, e.clientY);
+                    }
+                });
+
+                window.addEventListener('pointerup', function () {
+                    if (isDrawing) {
+                        finishStroke();
+                    }
+                });
+
+                window.addEventListener('pointercancel', function () {
+                    if (isDrawing) {
+                        finishStroke();
+                    }
+                });
+
+                if (clearStrokeBtn) {
+                    clearStrokeBtn.addEventListener('click', function () {
+                        playPickupSound();
+                        clearCanvasDrawing();
+                    });
+                }
+            }
+
+            /* =========================================================
+               7. PHÁO GIẤY CHÚC MỪNG HOÀN THÀNH
+               ========================================================= */
+            var confettiCanvas = document.getElementById('confetti-canvas');
+            var cCtx = confettiCanvas ? confettiCanvas.getContext('2d') : null;
+            var confettiItems = [];
+
+            function startConfetti() {
+                if (!confettiCanvas || !cCtx) return;
+                var rect = confettiCanvas.getBoundingClientRect();
+                confettiCanvas.width = Math.max(1, Math.round(rect.width));
+                confettiCanvas.height = Math.max(1, Math.round(rect.height));
+
+                var colors = ['#ef4444', '#facc15', '#22c55e', '#38bdf8', '#f472b6', '#a855f7'];
+                confettiItems = [];
+                for (var i = 0; i < 95; i++) {
+                    confettiItems.push({
+                        x: Math.random() * confettiCanvas.width,
+                        y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+                        w: 7 + Math.random() * 8,
+                        h: 5 + Math.random() * 6,
+                        color: colors[i % colors.length],
+                        vy: 2.2 + Math.random() * 3.2,
+                        vx: -1.5 + Math.random() * 3,
+                        rot: Math.random() * 360,
+                        vRot: -5 + Math.random() * 10
+                    });
+                }
+
+                function tickConfetti() {
+                    if (gamePhase !== 'DONE') return;
+                    cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                    for (var i = 0; i < confettiItems.length; i++) {
+                        var p = confettiItems[i];
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.rot += p.vRot;
+                        if (p.y > confettiCanvas.height) {
+                            p.y = -12;
+                            p.x = Math.random() * confettiCanvas.width;
+                        }
+                        cCtx.save();
+                        cCtx.translate(p.x, p.y);
+                        cCtx.rotate((p.rot * Math.PI) / 180);
+                        cCtx.fillStyle = p.color;
+                        cCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                        cCtx.restore();
+                    }
+                    requestAnimationFrame(tickConfetti);
+                }
+
+                requestAnimationFrame(tickConfetti);
+            }
+
+            /* =========================================================
+               8. KHỞI CHẠY TRÒ CHƠI
+               ========================================================= */
+            renderTrayNumbers();
+            renderBunnies();
+            bindDragEvents();
+            bindDrawEvents();
+        })();
+    </script>
+</body>
+</html>
